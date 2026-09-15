@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.security import HTTPBearer
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
+from app.api.offline import router as offline_router
 
 from app.db.base import Base
 from app.db.session import engine
@@ -15,6 +16,7 @@ from app.models.security_event import SecurityEvent
 from app.models.offline_transaction import OfflineTransaction
 from app.models.audit_log import AuditLog
 
+app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,5 +31,9 @@ app.include_router(
 
 app.include_router(
     auth_router,
+    prefix="/api/v1"
+)
+app.include_router(
+    offline_router,
     prefix="/api/v1"
 )
