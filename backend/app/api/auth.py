@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends,Header,HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,7 +11,13 @@ from app.core.security import (
     decode_access_token
 )
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"]
+)
+
+security = HTTPBearer()
 
 
 @router.post("/register")
@@ -21,6 +28,16 @@ def register(
     password: str,
     db: Session = Depends(get_db)
 ):
+    existing_user = db.query(User).filter(
+        User.email == email
+    ).first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+
     password_hash = hash_password(password)
 
     user = User(
@@ -52,7 +69,9 @@ def login(
     password: str,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(
+        User.email == email
+    ).first()
 
     if not user:
         return {
@@ -64,7 +83,10 @@ def login(
             }
         }
 
-    if not verify_password(password, user.password_hash):
+    if not verify_password(
+        password,
+        user.password_hash
+    ):
         return {
             "success": False,
             "data": None,
@@ -74,7 +96,9 @@ def login(
             }
         }
 
-    access_token = create_access_token(str(user.id))
+    access_token = create_access_token(
+        str(user.id)
+    )
 
     return {
         "success": True,
@@ -91,22 +115,12 @@ def login(
 
 
 def get_current_user(
-    authorization: str = Header(None),
+    credentials: HTTPAuthorizationCredentials = Depends(
+        security
+    ),
     db: Session = Depends(get_db)
 ):
-    if not authorization:
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header is required"
-        )
-
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization format"
-        )
-
-    token = authorization.replace("Bearer ", "", 1)
+    token = credentials.credentials
 
     user_id = decode_access_token(token)
 
@@ -116,7 +130,9 @@ def get_current_user(
             detail="Invalid or expired token"
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(
+        User.id == user_id
+    ).first()
 
     if not user:
         raise HTTPException(
@@ -125,8 +141,12 @@ def get_current_user(
         )
 
     return user
+
+
 @router.get("/me")
-def get_me(user: User = Depends(get_current_user)):
+def get_me(
+    user: User = Depends(get_current_user)
+):
     return {
         "success": True,
         "data": {

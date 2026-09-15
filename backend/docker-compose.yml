@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16
+    container_name: moneymate-db
+    environment:
+      POSTGRES_DB: moneymate
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: moneymatepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: .
+    container_name: moneymate-backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:moneymatepassword@db:5432/moneymate
+      SECRET_KEY: moneymate-demo-secret-key
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:
+  
